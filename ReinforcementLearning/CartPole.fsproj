@@ -1,0 +1,43 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <Platforms>AnyCPU;x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Common.fs" />
+    <Compile Include="CartPole.fs" />
+    <Compile Include="DuelingNetwork\DuelingNetwork.fs" />
+    <Compile Include="DuelingNetwork\TDErrorMemory.fs" />
+    <Compile Include="DuelingNetwork\DuelingNetworkAgent.fs" />
+    <Compile Include="A2C\ActorCritic.fs" />
+    <Compile Include="A2C\ActorCriticAgent.fs" />
+    <Compile Include="Gui.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="0.10.7" />
+    <PackageReference Include="Avalonia.Desktop" Version="0.10.7" />
+    <PackageReference Include="DiffSharp-lite" Version="1.0.0-preview-987646120" />
+    <PackageReference Include="DiffSharp.Backends.Reference" Version="1.0.0-preview-987646120" />
+    <PackageReference Include="DiffSharp.Backends.Torch" Version="1.0.0-preview-987646120" />
+    <PackageReference Include="DiffSharp.Core" Version="1.0.0-preview-987646120" />
+    <PackageReference Include="DiffSharp.Data" Version="1.0.0-preview-987646120" />
+    <PackageReference Include="DiffSharp.IO" Version="1.0.0-preview-586440747" />
+    <PackageReference Include="FSharp.Control.Reactive" Version="5.0.2" />
+    <PackageReference Include="FSharp.Stats" Version="0.4.2" />
+    <PackageReference Include="JaggerJo.Avalonia.FuncUI" Version="0.5.0-beta" />
+    <PackageReference Include="JaggerJo.Avalonia.FuncUI.DSL" Version="0.5.0-beta" />
+    <PackageReference Include="JaggerJo.Avalonia.FuncUI.Elmish" Version="0.5.0-beta" />
+    <PackageReference Include="Plotly.NET" Version="2.0.0-preview.8" />
+    <PackageReference Include="System.Reactive" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="6.0.0" />
+  </ItemGroup>
+
+</Project>
