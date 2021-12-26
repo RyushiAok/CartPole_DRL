@@ -2,7 +2,7 @@
  
 open DiffSharp.Util 
  
-type Action = | Left | Right  
+type Action = | Left | Right | None
 
 type [<Measure>] kg 
 type [<Measure>] m 
@@ -31,8 +31,9 @@ type Apparatus = {
         // https://github.com/openai/gym/blob/master/gym/envs/classic_control/cartpole.py
         let force =
             match action with
-            | Left  ->  this.forceMag
-            | Right -> -this.forceMag
+            | Left  ->  -this.forceMag
+            | Right -> this.forceMag
+            | None -> 0.0<N>
         let sinTheta = this.theta |> float |> sin 
         let cosTheta = this.theta |> float |> cos    
         let poleMassLength =  this.massPole * this.length 
@@ -78,9 +79,9 @@ module Apparatus =
             tau       = 0.02<s>
             forceMag  = 10.0<N>  
             elappesed = 0 
-            width     = 4.8 * 80.0
-            height    = 180.0   
-            scale     = 80.0
+            width     = 4.8 * 120.0
+            height    = 300.0   
+            scale     = 120.0
         }  
 
 open FSharp.Control.Reactive   

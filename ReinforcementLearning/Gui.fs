@@ -40,16 +40,16 @@ module Gui =
                 let th = state.theta   
                 Rectangle.create [
                     Rectangle.fill "black"
-                    Rectangle.width  30.0
-                    Rectangle.height 20.0
-                    Rectangle.left (x - 15.0)
-                    Rectangle.top  (cy - 10.0)
+                    Rectangle.width  50.0
+                    Rectangle.height 30.0
+                    Rectangle.left (x - 25.0)
+                    Rectangle.top  (cy - 15.0)
                 ]
                 Line.create [
                     Line.startPoint (x, cy)
                     Line.endPoint (x + l * sin th, y - l * cos th ) 
                     Line.stroke "orange"
-                    Line.strokeThickness 5.5
+                    Line.strokeThickness 7.5
                 ]
             ])
         ] 
@@ -118,16 +118,20 @@ module Gui =
                             env.Reflect(action |> function | 0 -> Left | _ -> Right) |> ignore 
                 } 
                 |> Async.Start 
-                subject
-                 
-
+                subject 
            
-            let subject = a2c() //duelingNetwork()
-
+            let subject =  
+                a2c() 
+                //duelingNetwork()
+                
+                //let steps = 200
+                //let env = Environment(steps) 
+                //let subject = env.Subject 
+                //subject
 
             let draw (initialState:Apparatus) =  
                 let sub dispatch =   
-                    Observable.interval (TimeSpan.FromMilliseconds 20.0) 
+                    Observable.interval (TimeSpan.FromMilliseconds 5.0) 
                     |> Observable.withLatestFrom (fun _ b -> b) subject
                     |> Observable.distinctUntilChanged
                     |> Observable.subscribe (fun x -> Msg.Update x |> dispatch)
@@ -135,9 +139,9 @@ module Gui =
                 Cmd.ofSub sub
  
             let keyDownHandler (initialState: Apparatus) =  
-                //Observable.interval (TimeSpan.FromMilliseconds 50.0)
+                //Observable.interval (TimeSpan.FromMilliseconds 15.0)
                 //|> Observable.subscribe(fun _ -> 
-                //    subject.OnNext { subject.Value with apparatus = subject.Value.apparatus |> Apparatus.move 0.0 } )
+                //    subject.OnNext (subject.Value.Move None ))
                 //|> ignore
                 let sub dispatch =  
                     this.KeyDown.Add (fun eventArgs ->   
