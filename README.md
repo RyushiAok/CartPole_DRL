@@ -1,4 +1,4 @@
-# ReinforcementLearning
+# Deep Reinforcement Learning 
 
 ## A2C
 ![実行例A2C](https://user-images.githubusercontent.com/55625375/137506512-eeb17973-12be-495e-a75f-03335b16a1ec.gif) 
