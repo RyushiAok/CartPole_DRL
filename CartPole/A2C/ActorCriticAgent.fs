@@ -4,8 +4,7 @@ open DiffSharp
 open DiffSharp.Compose
 open DiffSharp.Util
 
-open Plotly.NET 
-
+open Plotly.NET  
 
 type ActorCriticAgent(actorCritic: ActorCritic, env: Environment) = 
 

@@ -17,6 +17,7 @@ open FSharp.Control
 open FSharp.Control.Reactive 
 
 open DiffSharp
+open System.Reactive.Subjects
 
 module Gui =  
     type Msg = 
@@ -54,81 +55,9 @@ module Gui =
             ])
         ] 
 
-    type MainWindow() as this =
+    type MainWindow(subject: BehaviorSubject<Apparatus>) as this =
         inherit HostWindow()
-        do       
-
-            let duelingNetwork () =  
-                let env = Environment(steps=200) 
-                let subject = env.Subject 
-                async {  
-                    let agent =
-                        DuelNetworkAgent(
-                            observationSize=4,
-                            hiddenSize=32, 
-                            actionCount=2,
-                            learningRate=0.0001,
-                            discount=0.99,
-                            wd= 100.0,
-                            batchSize=32
-                        )  
-                    agent.Optimize(env,1000) |> ignore
-
-                    while true do 
-                        env.Reset()
-                        while not <| env.Failed() do 
-                            Threading.Thread.Sleep 20
-                            let action = agent.SelectAction(env.State(),0.0)
-                            env.Reflect(action) |> ignore 
-                } 
-                |> Async.Start  
-                subject
-
-               
-            let a2c () = 
-                let steps = 200
-                let env = Environment(steps) 
-                let subject = env.Subject 
-                async { 
-                    let actorCritic =  
-                        ActorCritic(
-                            actor=ActorNetwork (observationSize=4,hiddenSize=32,actionCount=2),
-                            critic=CriticNetwork(observationSize=4,hiddenSize=32),
-                            learningRate=0.0025    // 0.01 0.003 
-                        )
-
-                    let agents =   
-                        [|yield env; for _ in 1..31 -> Environment(steps)|]
-                        |> Array.map(fun e -> 
-                            ActorCriticAgent(
-                                actorCritic = actorCritic,
-                                env = e
-                            )
-                        ) 
-
-                    A2C.optimize(actorCritic, agents) |> ignore
-
-                    let agent = ActorCriticAgent(actorCritic,env)
-
-                    while true do 
-                        env.Reset()
-                        while not <| env.Failed() do 
-                            Threading.Thread.Sleep 20
-                            let action = agent.SelectAction(dsharp.tensor <| [env.State()]).toInt32()
-                            env.Reflect(action |> function | 0 -> Left | _ -> Right) |> ignore 
-                } 
-                |> Async.Start 
-                subject 
-           
-            let subject =  
-                a2c() 
-                //duelingNetwork()
-                
-                //let steps = 200
-                //let env = Environment(steps) 
-                //let subject = env.Subject 
-                //subject
-
+        do     
             let draw (initialState:Apparatus) =  
                 let sub dispatch =   
                     Observable.interval (TimeSpan.FromMilliseconds 5.0) 
@@ -138,11 +67,7 @@ module Gui =
                     |> ignore
                 Cmd.ofSub sub
  
-            let keyDownHandler (initialState: Apparatus) =  
-                //Observable.interval (TimeSpan.FromMilliseconds 15.0)
-                //|> Observable.subscribe(fun _ -> 
-                //    subject.OnNext (subject.Value.Move None ))
-                //|> ignore
+            let keyDownHandler (initialState: Apparatus) = 
                 let sub dispatch =  
                     this.KeyDown.Add (fun eventArgs ->   
                         match eventArgs.Key with
@@ -163,7 +88,7 @@ module Gui =
             |> Program.run
 
 
-    type App() =
+    type App(subject) =
         inherit Application()
 
         override this.Initialize() =
@@ -172,14 +97,14 @@ module Gui =
         override this.OnFrameworkInitializationCompleted() =
             match this.ApplicationLifetime with
             | :? IClassicDesktopStyleApplicationLifetime as desktopLifetime ->
-                let mainWindow = MainWindow()
+                let mainWindow = MainWindow(subject)
                 desktopLifetime.MainWindow <- mainWindow
             | _ -> ()
 
 
-    let appRun  argv =  
+    let appRun (subject: BehaviorSubject<Apparatus>) argv =   
         AppBuilder
-            .Configure<App>()
+            .Configure(fun () -> App subject)
             .UsePlatformDetect()
             .UseSkia()
             .StartWithClassicDesktopLifetime(argv)
