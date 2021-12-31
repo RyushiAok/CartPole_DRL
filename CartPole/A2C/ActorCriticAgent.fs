@@ -12,7 +12,7 @@ type ActorCriticAgent(actorCritic: ActorCritic, env: Environment) =
 
     member _.logSteps = l
 
-    member _.Observe ()  = env.State()
+    member _.Observe ()  = env.Observations()
 
     member _.Step (action:int) =   
         let newState,reward,isDone = env.Reflect (action |> function | 0 -> Left | _ -> Right)

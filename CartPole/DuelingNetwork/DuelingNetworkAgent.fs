@@ -34,7 +34,7 @@ type DuelNetworkAgent(
                 | 0 -> Left | _ -> Right
 
     member this.Step (env:Environment, episode:int, batchSize:int) = 
-        let state  = env.State()
+        let state  = env.Observations()
         let action = this.SelectAction  (state, 0.01 + ( 0.9- 0.01) * exp( -1.0 * float episode / wd)) 
 
         let newState,reward,isDone = env.Reflect action
