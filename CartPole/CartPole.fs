@@ -131,19 +131,21 @@ type Env (?steps:int) =
 
         let isDone = this.IsDone() 
 
-        subject.Value.Observations(), reward, isDone
-
+        subject.Value.Observations(), reward, isDone 
 
 
 open System.Net
 open System.Net.Sockets
 open System.Text
 open System.Text.RegularExpressions
-open System.Threading
-open System.Reactive.Subjects 
-open FSharp.Control 
-open FSharp.Control.Reactive
+open System.Threading 
+open FSharp.Control  
+ 
 
+type GymCmd =  
+    | Reset
+    | Obs 
+    | Act of string
 
 type GymEnvironment(client:Socket, ?steps:int)=
     inherit Environment() 
@@ -170,42 +172,43 @@ type GymEnvironment(client:Socket, ?steps:int)=
     let mutable recievedAR = false
     let observations = Subject.behavior <| Array.create 4 0.0   
     let actionResult = Subject.behavior <| (0., false)
+    let gymSubject = Subject.behavior GymCmd.Reset
 
     do   
-        async {
-            let buffer = Array.create 128 (byte 0)  
-            let rec read() =
-                let len = client.Receive(buffer) 
-                Encoding.Default.GetString(buffer, 0, len) 
-                |> function 
-                    | Observations s -> observations.OnNext s
-                    | ActionResult (obs, res) ->
-                        observations.OnNext obs
-                        let failed = 
-                            let obs = observations.Value
-                            let x,theta = obs[0],obs[2] 
-                            theta < -0.21 
-                            || 0.21 < theta 
-                            || float x < -2.4
-                            || 2.4 < float x 
-                        let isdone = failed || elappsed >= steps 
-                        let reward =  
-                            if isdone then  
-                                if failed then -1.0 else 1.0 
-                            else 
-                                0.0    
-                        let isDone = isdone
-                        actionResult.OnNext (reward, isDone)
-                        //reward <- -s[0]; 
-                        //isDone <- s[1] = 1.0; 
-                        recievedAR <- true
-                    | None -> () 
-                 
-
-                read()
-            read()
-        }
-        |> Async.Start
+        let buffer = Array.create 128 (byte 0)  
+        gymSubject
+        |> Observable.subscribe(fun cmd ->  
+            match cmd with  
+            | Reset -> "reset"  
+            | Obs -> "obs"  
+            | Act a -> a  
+            |> Encoding.ASCII.GetBytes |> client.Send  |> ignore
+            let len = client.Receive(buffer) 
+            Encoding.ASCII.GetString(buffer, 0, len) 
+            |> function  
+                | Observations s -> observations.OnNext s |> ignore
+                | ActionResult (obs, res)  ->  
+                    observations.OnNext obs
+                    let failed = 
+                        let obs = observations.Value
+                        let x,theta = obs[0],obs[2] 
+                        theta < -0.21 
+                        || 0.21 < theta 
+                        || float x < -2.4
+                        || 2.4 < float x 
+                    let isdone = failed || elappsed >= steps 
+                    let reward =  
+                        if isdone then  
+                            if failed then -1.0 else 1.0 
+                        else 
+                            0.0    
+                    let isDone = isdone
+                    actionResult.OnNext (reward, isDone) 
+                    recievedAR <- true 
+                | _ -> ()
+            ()
+        )
+        |> ignore
 
     
     override _.Steps = steps
@@ -217,10 +220,8 @@ type GymEnvironment(client:Socket, ?steps:int)=
     override _.Elappsed() = elappsed
 
     override _.Reset() = 
-        elappsed <- 0
-        //isDone <- false
-        "reset" |> Encoding.Default.GetBytes |> client.Send |> ignore 
-        Thread.Sleep 50
+        elappsed <- 0 
+        gymSubject.OnNext GymCmd.Reset 
     
     member this.Failed () = 
         let obs = observations.Value
@@ -230,8 +231,7 @@ type GymEnvironment(client:Socket, ?steps:int)=
         || float x < -2.4
         || 2.4 < float x    
 
-    override this.IsDone() = 
-        // isDone
+    override this.IsDone() =  
         this.Failed() || this.Elappsed() >= steps
 
     override this.Reflect(action:Action)  =  
@@ -242,15 +242,13 @@ type GymEnvironment(client:Socket, ?steps:int)=
             | Left -> "0"
             | Right -> "1"
             | Nothing -> failwithf "this command is invalid in Gym"
-            |> Encoding.Default.GetBytes |> client.Send |> ignore 
-            //Thread.Sleep 50
+            |> GymCmd.Act
+            |> gymSubject.OnNext  
         
         let reward, isDone =  
             while recievedAR = false do
                 Thread.Sleep 1// ActionResultの受け取りを待機 
             actionResult.Value
-        observations.Value,  reward, isDone 
-
-
+        observations.Value,  reward, isDone  
 
  

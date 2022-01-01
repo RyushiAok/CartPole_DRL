@@ -89,16 +89,14 @@ module Main =
                 //|> ignore 
             CartPole.Gui.appRun subject argv  
 
-        let pythonEnvDuel () = 
-            let client = 
-                let socket = 
-                    let endPoint = IPEndPoint(IPAddress.Any, 8080)
-                    let socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
-                    socket.Bind(endPoint)
-                    socket.Listen(10)
-                    socket 
-                socket.Accept() 
-            let env = GymEnvironment(client)  
+        let pythonEnvDuel () =  
+            let socket = new Socket(AddressFamily.InterNetwork,
+                                    SocketType.Stream,
+                                    ProtocolType.Tcp)
+
+            let endPoint = new IPEndPoint(IPAddress.Loopback, 8080 )
+            socket.Connect(endPoint)
+            let env = GymEnvironment (socket)
             async {  
                 let agent =
                     DuelNetworkAgent(
@@ -123,16 +121,16 @@ module Main =
         let pythonEnvA2C () =  
             async {
                 let envs = [|
-                    for i in 0..15 ->
-                        let client = 
-                            let socket = 
-                                let endPoint = IPEndPoint(IPAddress.Any, 8080+i)
-                                let socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp) 
-                                socket.Bind(endPoint)
-                                socket.Listen(10)
-                                socket 
-                            socket.Accept() 
-                        GymEnvironment(client)   
+                    for i in 0..31 -> 
+                        
+                        let socket = new Socket(AddressFamily.InterNetwork,
+                                                SocketType.Stream,
+                                                ProtocolType.Tcp)
+
+                        let endPoint = new IPEndPoint(IPAddress.Loopback, 8080 + i)
+                        socket.Connect(endPoint)
+                        GymEnvironment (socket)
+   
                 |]
             
                 let actorCritic =  
@@ -165,7 +163,7 @@ module Main =
             |> Async.RunSynchronously
  
         //fsharpEnv() 
-        //pythonEnvDuel()
+        // pythonEnvDuel()
 
         pythonEnvA2C ()
 
