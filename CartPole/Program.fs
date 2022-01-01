@@ -35,9 +35,7 @@ module Main =
                     Threading.Thread.Sleep 20
                     let action = agent.SelectAction(env.Observations(),0.0)
                     env.Reflect(action) |> ignore 
-        }  
-
-       
+        }   
 
     let a2c (env: Env) =  
          async { 
@@ -68,9 +66,7 @@ module Main =
                      let action = agent.SelectAction(dsharp.tensor <| [env.Observations()]).toInt32()
                      env.Reflect(action |> function | 0 -> Left | _ -> Right) |> ignore 
          }  
-        
-
-
+         
     [<EntryPoint>]
     let main argv =  
         NativeLibrary.Load(@"C:\libtorch\lib\torch.dll") |> ignore
@@ -79,14 +75,15 @@ module Main =
         let fsharpEnv() = 
             let subject = 
                 let env = Env(steps=200)   
-                //a2c(env)  |> Async.Start 
-                duelingNetwork(env)  |> Async.Start
-                env.Subject 
+                let s = env.Subject
+                a2c(env)  |> Async.Start 
+                //duelingNetwork(env)  |> Async.Start
                 //let subject = Environment(steps=200).Subject  
                 //Observable.interval (TimeSpan.FromMilliseconds 15.0)
                 //|> Observable.subscribe(fun _ -> 
                 //    subject.OnNext (subject.Value.Move None ))
                 //|> ignore 
+                s
             CartPole.Gui.appRun subject argv  
 
         let pythonEnvDuel () =  
@@ -121,16 +118,11 @@ module Main =
         let pythonEnvA2C () =  
             async {
                 let envs = [|
-                    for i in 0..31 -> 
-                        
-                        let socket = new Socket(AddressFamily.InterNetwork,
-                                                SocketType.Stream,
-                                                ProtocolType.Tcp)
-
+                    for i in 0..31 ->  
+                        let socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp) 
                         let endPoint = new IPEndPoint(IPAddress.Loopback, 8080 + i)
                         socket.Connect(endPoint)
-                        GymEnvironment (socket)
-   
+                        GymEnvironment (socket) 
                 |]
             
                 let actorCritic =  
@@ -162,7 +154,7 @@ module Main =
             }
             |> Async.RunSynchronously
  
-        //fsharpEnv() 
+        // fsharpEnv() 
         // pythonEnvDuel()
 
         pythonEnvA2C ()

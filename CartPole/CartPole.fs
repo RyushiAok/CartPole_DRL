@@ -144,7 +144,6 @@ open FSharp.Control
 
 type GymCmd =  
     | Reset
-    | Obs 
     | Act of string
 
 type GymEnvironment(client:Socket, ?steps:int)=
@@ -152,9 +151,7 @@ type GymEnvironment(client:Socket, ?steps:int)=
     let steps = defaultArg steps 200  
     let regexObs = Regex("^o:(-?\d+\.\d+),(-?\d+\.\d+),(-?\d+\.\d+),(-?\d+\.\d+)$", RegexOptions.Compiled) 
     let regexAct = Regex("^r:(-?\d+\.\d+),(-?\d+\.\d+),(-?\d+\.\d+),(-?\d+\.\d+),(-?\d+\.\d+),(-?\d+\.\d+)$", RegexOptions.Compiled)   
-    let (|Observations|ActionResult|None|)  (input:string) =
-
-        if input.Length = 0 then None else  
+    let (|Observations|ActionResult|)  (input:string) = 
         match input[0] with
         | 'o' -> Observations (
             regexObs.Match(input).Groups 
@@ -165,8 +162,7 @@ type GymEnvironment(client:Socket, ?steps:int)=
             |> Seq.toArrayQuick |> fun ary -> ary[1..] 
             |> Array.map(fun t -> t.ToString() |> System.Double.Parse)
             |> fun ary -> ary[0..3], ary[4..]
-            )  
-        | _ -> None  
+            )    
     
     let mutable elappsed = 0
     let mutable recievedAR = false
@@ -179,8 +175,7 @@ type GymEnvironment(client:Socket, ?steps:int)=
         gymSubject
         |> Observable.subscribe(fun cmd ->  
             match cmd with  
-            | Reset -> "reset"  
-            | Obs -> "obs"  
+            | Reset -> "reset" 
             | Act a -> a  
             |> Encoding.ASCII.GetBytes |> client.Send  |> ignore
             let len = client.Receive(buffer) 
@@ -205,8 +200,6 @@ type GymEnvironment(client:Socket, ?steps:int)=
                     let isDone = isdone
                     actionResult.OnNext (reward, isDone) 
                     recievedAR <- true 
-                | _ -> ()
-            ()
         )
         |> ignore
 
