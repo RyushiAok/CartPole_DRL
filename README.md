@@ -11,3 +11,6 @@
 ![DuelNet](https://user-images.githubusercontent.com/55625375/137509377-47b5727b-6732-4101-b14f-8d454da2bed5.gif) 
 
 <img src=https://user-images.githubusercontent.com/55625375/137509414-697291e8-b9bc-414a-95f3-4b0ff9e289df.png width= 400> 
+
+## ソケット通信によるGym環境の利用
+![GymEnvA2C](https://user-images.githubusercontent.com/55625375/147834837-f5ac305a-3bf4-47c5-9567-fe45727d3472.gif) 
