@@ -1,4 +1,5 @@
-﻿namespace CartPole
+﻿namespace CartPole.A2C
+open CartPole.Core
  
 open DiffSharp
 open DiffSharp.Compose
@@ -87,11 +88,12 @@ type A2C =
              
 
         
-        [
-            for a in agents -> 
-                Chart.Line(a.logSteps,Color=Color.fromString "purple",Opacity=0.2)  
-        ] 
-        |> Chart.combine 
+        //[
+        //    for a in agents -> 
+        //        Chart.Line(a.logSteps,Color=Color.fromString "purple",Opacity=0.2)  
+        //] 
+        //|> Chart.combine 
+        Chart.Line(agents[0].logSteps,Color=Color.fromString "purple") // ,Opacity=0.2)  
         |> Chart.withSize(800.0,600.0)
         |> Chart.withLegend false
         |> Chart.withLayoutGridStyle(YGap= 0.1)

@@ -1,7 +1,7 @@
 ﻿namespace CartPole
 
 open System 
-
+open CartPole.Core
 open Avalonia
 open Avalonia.Controls
 open Avalonia.Controls.Shapes

@@ -1,4 +1,4 @@
-﻿namespace CartPole
+﻿namespace CartPole.DuelingNetwork
 
 
 open DiffSharp 

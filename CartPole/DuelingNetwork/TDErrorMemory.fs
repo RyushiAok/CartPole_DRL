@@ -1,5 +1,5 @@
-﻿namespace CartPole 
-
+﻿namespace CartPole.DuelingNetwork
+open CartPole.Core
 open DiffSharp 
 open DiffSharp.Model 
 open DiffSharp.Compose

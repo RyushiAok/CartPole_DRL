@@ -63,4 +63,4 @@ def gym_environment(n: int):
 
 if __name__ == '__main__':
     # gym_environment(1) # duel
-    gym_environment(32)
+    gym_environment(60)

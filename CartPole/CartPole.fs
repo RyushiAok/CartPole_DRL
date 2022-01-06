@@ -1,8 +1,8 @@
-﻿namespace CartPole
+﻿namespace CartPole.Core
  
 open DiffSharp.Util 
  
-type Action = | Left | Right | Nothing
+type Action = | Left | Right | Nothing //Nothingはキーボード入力で遊ぶときだけ必要
 
 type [<Measure>] kg 
 type [<Measure>] m 
