@@ -1,5 +1,5 @@
-﻿namespace CartPole 
-
+﻿namespace CartPole.DuelingNetwork
+open CartPole.Core
 open DiffSharp  
 open DiffSharp.Optim
 open DiffSharp.Util 
@@ -99,6 +99,7 @@ type DuelNetworkAgent(
 
                 if episode % 5 = 0 then this.UpdateTarget()  
                 
+                // ログ
                 logStep.Add(logStep.Count,env.Elappsed())
                 logLoss.Add(logLoss.Count,sumLoss / float(env.Elappsed())) 
                 returnsLast10episodes.[episode % returnsLast10episodes.Length] <- float <| env.Elappsed()
