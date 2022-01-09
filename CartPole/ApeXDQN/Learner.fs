@@ -1,5 +1,7 @@
 ﻿namespace CartPole.ApeXDQN
-
+open System.Threading.Tasks
+open FSharp.Control.TaskBuilder
+open FSharp.Control.TaskBuilderExtensions
 open DiffSharp
 open DiffSharp.Model
 open DiffSharp.Compose
@@ -13,7 +15,7 @@ open Plotly.NET
  
 type Learner(globalNet:QNetwork, actors:Actor[], discount:float, learningRate:float)=  
     let optimizer = Adam(globalNet,lr=dsharp.tensor learningRate) 
-    member _.UpdateNetwork(minibatchs: (int[]* float[]*Transitions)[]) = // globalNetの学習 
+    member _.UpdateNetwork(minibatchs: (int[]* float[]*Transitions)[]) =
         let indicesAll = ResizeArray<int>()
         let tdErrorsAll = ResizeArray<float>()
         for indices, weights, transitions in minibatchs do 
@@ -25,8 +27,6 @@ type Learner(globalNet:QNetwork, actors:Actor[], discount:float, learningRate:fl
             
             globalNet.reverseDiff()
             let Q = 
-                //let am = states.argmax(1).view [-1;1]  
-                //(states --> globalNet).gather(1,am)  
                 (states --> globalNet).mul(acts)
 
             let TQ  = 
@@ -37,9 +37,8 @@ type Learner(globalNet:QNetwork, actors:Actor[], discount:float, learningRate:fl
 
             let tdErrors = (TQ - Q)**2
             let loss =
-                //dsharp.mean (tdErrors.mul (dsharp.tensor weights))
-                //dsharp.mean ( (dsharp.tensor weights).expand([weights.Length; 2]).mul tdErrors
                 dsharp.mean ( (dsharp.tensor (weights  |> Array.map(fun t -> [t;t]))).mul tdErrors)
+                
             loss.reverse()
             optimizer.step() 
             globalNet.noDiff()
@@ -47,74 +46,58 @@ type Learner(globalNet:QNetwork, actors:Actor[], discount:float, learningRate:fl
             indicesAll.AddRange(indices) 
             tdErrorsAll.AddRange( 
                 let am = tdErrors.argmax(1).view([-1;1])
-                //printfn"%A" <| tdErrors.gather(1,am).flatten()
                 tdErrors.gather(1,am).flatten().toArray() :?> float32[] |> Array.map float
             ) 
         ( indicesAll.ToArray(), tdErrorsAll.ToArray())
 
 
-    member this.Learn()= 
+     
+
+    member this.Learn()=  
         let replay = Replay(bufferSize= (1<<<14)) 
-        let lockObj = obj() // ?
-            let tas =
-                actors 
-                |> Array.toList
-                |> List.map(fun actor -> 
-                    asyncSeq  {
-                        let mutable prev = -1
-                        while true do 
-                            let (tdError, (obss, acts, nxtObss, rewards, isDones)) =
-                                while now = prev do 
-                                    ()
-                                prev <- now
-                                actor.RollOut(globalNet.parameters)
-                        //replay.Add(tdError, obss, acts, nxtObss, rewards, isDones ) 
-                            lock lockObj (fun _ -> 
-                                replay.Add(tdError, obss, acts, nxtObss, rewards, isDones )  
-                            )
-                            yield 0
-                            ()
-                        ()
-                    } 
-                ) 
-                |> AsyncSeq.mergeAll
+        let miniN = 16 
+        let rollOut i =  
+            task {  
+                let (tdError, (obss, acts, nxtObss, rewards, isDones)) = 
+                    actors[i].RollOut(globalNet.parameters) 
+                return (tdError, (obss, acts, nxtObss, rewards, isDones))  
+            } :> Task
+
+        let rollOuts = actors |> Array.mapi(fun i _ -> rollOut i) 
+                 
+        for _ in 0..30 do 
+            // https://stackoverflow.com/questions/5116712/task-waitall-on-a-list-in-f
+            let id = Task.WaitAny rollOuts
+            let (tdError, (obss, acts, nxtObss, rewards, isDones)) = 
+                rollOuts[id] 
+                :?> Task<float[] * (Tensor[]*Tensor[]*Tensor[]*Tensor[]*Tensor[])>
+                |> fun t -> t.Result
+            replay.Add (tdError, obss, acts, nxtObss, rewards, isDones)  
+            rollOuts[id] <- rollOut id
             
-            tas
-            |> AsyncSeq.take 30 
-        |> AsyncSeq.iter(fun _ -> () ) //now <- -now  )
-            |> Async.RunSynchronously     
-        let mutable minibatchs =
-            [| for _ in 0..actors.Length-1 -> replay.SampleMinibatch(batchSize=32)|] 
-
-            tas
-        |> AsyncSeq.take 2000
-            |> AsyncSeq.iteriAsync(fun i _ -> 
-                async { 
-                    printfn "%A" i
-                    if i % actors.Length = 0 then  
-                    let indices, tdErrors = this.UpdateNetwork(minibatchs)  
-                    replay.UpdatePriority(indices, tdErrors) 
-                    minibatchs <-  
-                        [| for _ in 0..actors.Length-1 -> replay.SampleMinibatch(batchSize=32)|] 
-                    //lock lockObj (fun _ -> 
-                    //    replay.UpdatePriority(indices, tdErrors) 
-                    //    minibatchs <-  
-                    //        [| for _ in 0..actors.Length-1 -> replay.SampleMinibatch(batchSize=32)|] 
-                    //)
-                        ()
-                } 
-            )
-            |> Async.RunSynchronously
-            |> ignore
-
-             
-             
-            Chart.Line(xy = actors[0].Log )
-            |> Chart.show
-            ()
-    
-         //a()  
-        //b()
-        c()
-         
-        ()
+        let learn (replay: Replay) = 
+            task { 
+                let minibatchs = Array.init miniN (fun _ -> replay.SampleMinibatch(batchSize=32)) 
+                let indices, tdErrors = this.UpdateNetwork(minibatchs)  
+                return indices, tdErrors
+            }
+        let mutable learner = learn replay 
+        let mutable updateCnt = 0
+        let iter = 300
+        while updateCnt < iter do
+            System.Console.CursorLeft <- 0
+            printf  "%A / %A" updateCnt iter
+            let id = Task.WaitAny rollOuts
+            let (tdError, (obss, acts, nxtObss, rewards, isDones)) = 
+                rollOuts[id] 
+                :?> Task<float[] * (Tensor[]*Tensor[]*Tensor[]*Tensor[]*Tensor[])>
+                |> fun t -> t.Result
+            replay.Add (tdError, obss, acts, nxtObss, rewards, isDones)  
+            rollOuts[id] <- rollOut id 
+            if learner.IsCompleted then  
+                replay.UpdatePriority learner.Result
+                updateCnt <- updateCnt + 1  
+                learner <- learn replay
+                  
+        Chart.Line(xy = actors[0].Log )
+        |> Chart.show 

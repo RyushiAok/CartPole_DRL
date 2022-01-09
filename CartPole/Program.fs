@@ -154,21 +154,19 @@ module Main =
 
 
     module ApeXDQN = 
-        open CartPole.ApeXDQN
-         
+        open CartPole.ApeXDQN 
         let apeXdqn () =  
             let env = Env(steps=200) 
             async { 
-                let envs = [|yield env; for _ in 1..20 -> Env(env.Steps)|] 
-                let actorNetworks = 
-                    [| for i in 0..20 -> QNetwork(observationSize=4,hiddenSize=32,actionCount=2) |]
+                let n = 8
+                let envs = [|yield env; for _ in 1..n-1 -> Env(env.Steps)|] 
                 let actors = 
+                    let actorNetworks = Array.init n (fun _ -> QNetwork(observationSize=4,hiddenSize=32,actionCount=2) )
                     Array.zip actorNetworks envs
-                    |> Array.mapi(fun i (net,e) -> Actor(net, e, 2, 0.98, (float i / 20.0) * 0.5) )
+                    |> Array.mapi(fun i (net,env) -> Actor(net, env, 2, 0.98,  (float i / float n) * 0.5 + 0.01)  ) // 0.7
                 let learnerNetwork =  QNetwork(observationSize=4,hiddenSize=32,actionCount=2)
-                let lerner = Learner(learnerNetwork, actors, 0.98, 0.0025)//0.003
-                lerner.Learn() 
-
+                let lerner = Learner(learnerNetwork, actors, 0.98, 0.001)  
+                lerner.Learn()   
                 let agent =  Actor(learnerNetwork, envs[0], 2, 0.98, 0)
                 while true do 
                     envs[0].Reset()
@@ -189,7 +187,7 @@ module Main =
             let subject = 
                 let env = Env(steps=200)   
                 let s = env.Subject
-                //a2c(env)  |> Async.Start 
+                A2C.a2c(env)  |> Async.Start 
                 //duelingNetwork(env)  |> Async.Start
                 //let subject = Environment(steps=200).Subject  
                 //Observable.interval (TimeSpan.FromMilliseconds 15.0)
@@ -207,9 +205,9 @@ module Main =
         //pythonEnvA2C ()
         
 
-        //let s = ApeXDQN.apeXdqn() 
+
         CartPole.Gui.appRun (ApeXDQN.apeXdqn()) argv  
-      
+        //fsharpEnv()
   
         0
 
