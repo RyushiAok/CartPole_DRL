@@ -55,6 +55,9 @@ type Actor(
     
     member _.Log = log.ToArray()
 
+    member _.UpdateParam(networkParameters:ParameterDict) =  
+        network.parameters <- networkParameters.copy()
+
     member _.SelectAction (state: float[]) = 
         if Random.Double() < eps then 
             Random.Integer(0,actionCount) 
