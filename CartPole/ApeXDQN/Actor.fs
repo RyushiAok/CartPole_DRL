@@ -10,7 +10,7 @@ open DiffSharp.Optim
 type QNetwork (observationSize: int, hiddenSize: int, actionCount: int) = 
     inherit Model()  
     let fc1     = Linear(observationSize,hiddenSize) 
-    let fc2     = Linear(hiddenSize,hiddenSize)
+    let fc2     = Linear(hiddenSize,hiddenSize) 
     let fc3Adv  = Linear(hiddenSize,actionCount)
     let fc3V    = Linear(hiddenSize,1)
 
@@ -49,13 +49,14 @@ type Actor(
         Array.zeroCreate 100,
         Array.zeroCreate 100,
         Array.zeroCreate 100 
-
-    //let optimizer = Adam(network,lr=dsharp.tensor learningRate) 
-    //member a.a = 0
+         
 
     let mutable cnt = 0
     
     member _.Log = log.ToArray()
+
+    member _.UpdateParam(networkParameters:ParameterDict) =  
+        network.parameters <- networkParameters.copy()
 
     member _.SelectAction (state: float[]) = 
         if Random.Double() < eps then 
