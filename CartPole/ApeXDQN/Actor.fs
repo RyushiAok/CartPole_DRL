@@ -32,12 +32,7 @@ type Actor(
     discount        : float,
     eps : float 
 
-) =
-     
-    //let wd = defaultArg wd 300.0 // 100 -> 100.0, 
-    //let batchSize = defaultArg batchSize 32
-    //let memory    = Replay(1000) 
-
+) = 
     let buf = Array.zeroCreate 100
     let log = ResizeArray()
     let sw = System.Diagnostics.Stopwatch()
@@ -53,7 +48,10 @@ type Actor(
 
     let mutable cnt = 0
     
-    member _.Log = log.ToArray()
+    member _.Log = log 
+
+    member _.UpdateParam(networkParameters:ParameterDict) =  
+        network.parameters <- networkParameters.copy()
 
     member _.SelectAction (state: float[]) = 
         if Random.Double() < eps then 
@@ -80,17 +78,11 @@ type Actor(
             nxtObss[i] <- dsharp.tensor nxtObs
             isDones[i] <- dsharp.tensor (if isDone then 1 else 0)
             cnt <- cnt+ 1
-            if isDone then 
+            if isDone then   
                 log.Add(sw.Elapsed.TotalSeconds, cnt)
-                cnt <- 0
-
-                env.Reset() 
-                //resetCnt <- resetCnt + 1
-                //printfn "reset %A" resetCnt
-                totalEpsodeRewards <- 0.0
-                ()
-            else
-                ()
+                cnt <- 0 
+                env.Reset()  
+                totalEpsodeRewards <- 0.0 
 
         let obsBatch, actBatch, rewardBatch, nxtObsBatch, isDonesBatch = 
             (   obss     |> dsharp.stack,

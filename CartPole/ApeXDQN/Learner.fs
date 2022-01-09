@@ -82,11 +82,16 @@ type Learner(globalNet:QNetwork, actors:Actor[], discount:float, learningRate:fl
                 return indices, tdErrors
             }
         let mutable learner = learn replay 
-        let mutable updateCnt = 0
-        let iter = 300
-        while updateCnt < iter do
-            System.Console.CursorLeft <- 0
-            printf  "%A / %A" updateCnt iter
+        let mutable updateCnt, i, prev = 0, 0, actors[0].Log.Count  
+        let records = Array.create 10 0.0
+        while Array.average records < 200 do
+            if prev <> actors[0].Log.Count then
+                prev <- actors[0].Log.Count 
+                let elappsed, record = actors[0].Log[actors[0].Log.Count-1]  
+                records[i % records.Length] <- record |> float
+                i <- i + 1 
+                System.Console.CursorLeft <- 0
+                printf  "time %A | record %A | avg %A" elappsed record (Array.average records)
             let id = Task.WaitAny rollOuts
             let (tdError, (obss, acts, nxtObss, rewards, isDones)) = 
                 rollOuts[id] 
