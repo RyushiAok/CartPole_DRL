@@ -15,9 +15,9 @@ open Avalonia.Input
 
 open FSharp.Control
 open FSharp.Control.Reactive 
-
-open DiffSharp
+ 
 open System.Reactive.Subjects
+open DiffSharp.Util
 
 module Gui =  
     type Msg = 
@@ -66,14 +66,28 @@ module Gui =
                     |> Observable.subscribe (fun x -> Msg.Update x |> dispatch)
                     |> ignore
                 Cmd.ofSub sub
- 
+            let initState () = 
+                {   x         = Random.Double() * 0.1<m> - 0.05<m>
+                    dx        = Random.Double() * 0.1<m/s> - 0.05<m/s>
+                    theta     = Random.Double() * 0.1 - 0.05
+                    dtheta    = Random.Double() * 0.1</s>  - 0.05</s> 
+                    massCart  = 1.0<kg>
+                    massPole  = 0.1<kg>
+                    length    = 0.5<m>  
+                    g         = 9.8<m/s^2>
+                    tau       = 0.02<s>
+                    forceMag  = 10.0<N>  
+                    elappesed = 0 
+                    width     = 4.8 * 120.0
+                    height    = 300.0   
+                    scale     = 120.0 } 
             let keyDownHandler (initialState: Apparatus) = 
                 let sub dispatch =  
                     this.KeyDown.Add (fun eventArgs ->   
                         match eventArgs.Key with
                         | Key.A -> subject.OnNext <| subject.Value.Move  Left  
                         | Key.D -> subject.OnNext <| subject.Value.Move  Right 
-                        | _     -> subject.OnNext <| Apparatus.init () 
+                        | _     -> subject.OnNext <| initState () 
                     )
                     |> ignore 
                 Cmd.ofSub sub 
