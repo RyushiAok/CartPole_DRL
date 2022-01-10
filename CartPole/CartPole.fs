@@ -66,23 +66,23 @@ type Apparatus = {
         || 2.4 < float this.x   
 
 
-module Apparatus =
-    let init () =
-        {   x         = Random.Double() * 0.1<m> - 0.05<m>
-            dx        = Random.Double() * 0.1<m/s> - 0.05<m/s>
-            theta     = Random.Double() * 0.1 - 0.05
-            dtheta    = Random.Double() * 0.1</s>  - 0.05</s> 
-            massCart  = 1.0<kg>
-            massPole  = 0.1<kg>
-            length    = 0.5<m>  
-            g         = 9.8<m/s^2>
-            tau       = 0.02<s>
-            forceMag  = 10.0<N>  
-            elappesed = 0 
-            width     = 4.8 * 120.0
-            height    = 300.0   
-            scale     = 120.0
-        }  
+//module Apparatus =
+//    let init () =
+//        {   x         = Random.Double() * 0.1<m> - 0.05<m>
+//            dx        = Random.Double() * 0.1<m/s> - 0.05<m/s>
+//            theta     = Random.Double() * 0.1 - 0.05
+//            dtheta    = Random.Double() * 0.1</s>  - 0.05</s> 
+//            massCart  = 1.0<kg>
+//            massPole  = 0.1<kg>
+//            length    = 0.5<m>  
+//            g         = 9.8<m/s^2>
+//            tau       = 0.02<s>
+//            forceMag  = 10.0<N>  
+//            elappesed = 0 
+//            width     = 4.8 * 120.0
+//            height    = 300.0   
+//            scale     = 120.0
+//        }  
 
 open FSharp.Control.Reactive   
 
@@ -100,7 +100,22 @@ type Env (?steps:int) =
 
     let steps = defaultArg steps 200 
 
-    let subject = Subject.behavior <| Apparatus.init  ()  
+    let initState () = 
+        {   x         = Random.Double() * 0.1<m> - 0.05<m>
+            dx        = Random.Double() * 0.1<m/s> - 0.05<m/s>
+            theta     = Random.Double() * 0.1 - 0.05
+            dtheta    = Random.Double() * 0.1</s>  - 0.05</s> 
+            massCart  = 1.0<kg>
+            massPole  = 0.1<kg>
+            length    = 0.5<m>  
+            g         = 9.8<m/s^2>
+            tau       = 0.02<s>
+            forceMag  = 10.0<N>  
+            elappesed = 0 
+            width     = 4.8 * 120.0
+            height    = 300.0   
+            scale     = 120.0 } 
+    let subject = initState () |> Subject.behavior 
 
     member _.Subject = subject
 
@@ -111,13 +126,18 @@ type Env (?steps:int) =
     override _.Elappsed() = subject.Value.elappesed
 
     override _.Reset() = 
-        subject.OnNext <| Apparatus.init ()
+        subject.OnNext <| initState ()
     
-    member this.Failed () = // dueling ？
-        subject.Value.Failed()  
+    member _.Failed () =  
+        let theta = subject.Value.theta
+        let x = subject.Value.x 
+        theta < -0.21 
+        || 0.21 < theta 
+        || float x < -2.4
+        || 2.4 < float x     
 
     override this.IsDone() = 
-        subject.Value.Failed() || this.Elappsed() >= steps
+        this.Failed() || this.Elappsed() >= steps
 
     override this.Reflect(action:Action)  =  
 
@@ -133,6 +153,78 @@ type Env (?steps:int) =
 
         subject.Value.Observations(), reward, isDone 
 
+
+type Env2 (?steps:int) = 
+    inherit Environment()
+    let steps = defaultArg steps 200 
+     
+    let initState = 
+        {   x         = 0.0<m> 
+            dx        = 0.0<m/s>  
+            theta     = System.Math.PI 
+            dtheta    = 0.0</s> 
+            massCart  = 1.0<kg>
+            massPole  = 0.1<kg>
+            length    = 0.5<m>  
+            g         = 9.8<m/s^2>
+            tau       = 0.02<s>
+            forceMag  = 10.0<N>  
+            elappesed = 0 
+            width     = 4.8 * 120.0
+            height    = 300.0   
+            scale     = 120.0 } 
+    let subject = initState |> Subject.behavior 
+
+    member _.Subject = subject
+
+    override _.Steps = steps
+
+    override _.Observations() = subject.Value.Observations()
+    
+    override _.Elappsed() = subject.Value.elappesed
+
+    override _.Reset() = 
+        subject.OnNext <| initState
+    
+    member _.Failed () =  
+        let x = subject.Value.x 
+        float x < -2.4 || 2.4 < float x     
+
+    override this.IsDone() = 
+        this.Failed() || this.Elappsed() >= steps
+
+    override this.Reflect(action:Action)  =  
+
+        subject.OnNext <| subject.Value.Move action 
+
+        let reward =  
+            if this.IsDone() then   
+                if subject.Value.Failed() then -1.0 
+                else 
+                    let theta = subject.Value.theta 
+                    //if -0.21 <= theta && theta <= 0.21 then
+                    //    2.0  
+                    //elif -System.Math.PI / 3.0 <= theta && theta <= System.Math.PI / 3.0 then
+                    //    1.0
+                    //else
+                    //    0.0    
+                    if -System.Math.PI / 3.0 <= theta && theta <= System.Math.PI / 3.0 then
+                        1.0
+                    else
+                        0.0 
+            else 
+                let theta = subject.Value.theta 
+                //if -0.21 <= theta && theta <= 0.21 then
+                //    2.0  
+                //el
+                if -System.Math.PI / 3.0 <= theta && theta <= System.Math.PI / 3.0 then
+                    1.0
+                else
+                    0.0    
+
+        let isDone = this.IsDone() 
+
+        subject.Value.Observations(), reward, isDone 
 
 open System.Net
 open System.Net.Sockets

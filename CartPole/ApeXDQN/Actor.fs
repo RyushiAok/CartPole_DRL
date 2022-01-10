@@ -25,9 +25,28 @@ type QNetwork (observationSize: int, hiddenSize: int, actionCount: int) =
         v + adv - adv.mean(1,keepDim=true).expand[-1;adv.shape.[1] ]    
  
 
+
+type QNetwork2 (observationSize: int, hiddenSize: int, actionCount: int) = 
+    inherit Model()  
+    let fc1     = Linear(observationSize,hiddenSize) 
+    let fc2     = Linear(hiddenSize,hiddenSize) --> dsharp.relu -->Linear(hiddenSize,hiddenSize) --> dsharp.relu --> Linear(hiddenSize,hiddenSize)
+    let fc3Adv  = Linear(hiddenSize,actionCount)
+    let fc3V    = Linear(hiddenSize,1)
+
+    do 
+        base.add([ fc1; fc2; fc3Adv; fc3V])  
+
+    override _.forward x =
+        let h1  = x  --> fc1 --> dsharp.relu   
+        let h2  = h1 --> fc2 --> dsharp.relu    
+        let adv = h2 --> fc3Adv
+        let v   = h2 --> fc3V |> dsharp.expand [-1;adv.shape.[1]]  
+        v + adv - adv.mean(1,keepDim=true).expand[-1;adv.shape.[1] ]    
+ 
+
 type Actor(
-    network:QNetwork,
-    env:Env,
+    network:Model,
+    env:Environment,
     actionCount     : int, 
     discount        : float,
     eps : float 
@@ -47,6 +66,7 @@ type Actor(
          
 
     let mutable cnt = 0
+    let mutable totalEpisodeRewards = 0.0
     
     member _.Log = log 
 
@@ -66,12 +86,11 @@ type Actor(
 
     member this.RollOut(networkParameters:ParameterDict) = 
         network.parameters <- networkParameters.copy()
-        let mutable totalEpsodeRewards = 0.0
         for i in 0..buf.Length-1 do 
             let obs = env.Observations()
             let act = this.SelectAction(obs)
             let nxtObs, reward, isDone = env.Reflect act
-            totalEpsodeRewards <- totalEpsodeRewards + reward
+            totalEpisodeRewards <- totalEpisodeRewards + reward
             obss[i] <- dsharp.tensor obs 
             acts[i] <- dsharp.onehot (2,(act |> function | Left -> 0 | _ -> 1 ),Dtype.Int32) 
             rewards[i] <- dsharp.tensor reward
@@ -79,10 +98,11 @@ type Actor(
             isDones[i] <- dsharp.tensor (if isDone then 1 else 0)
             cnt <- cnt+ 1
             if isDone then   
-                log.Add(sw.Elapsed.TotalSeconds, cnt)
+                //log.Add(sw.Elapsed.TotalSeconds, cnt)
+                log.Add(sw.Elapsed.TotalSeconds, totalEpisodeRewards)
                 cnt <- 0 
                 env.Reset()  
-                totalEpsodeRewards <- 0.0 
+                totalEpisodeRewards <- 0.0 
 
         let obsBatch, actBatch, rewardBatch, nxtObsBatch, isDonesBatch = 
             (   obss     |> dsharp.stack,

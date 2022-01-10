@@ -13,7 +13,7 @@ open FSharp.Control.Reactive.Builders
 
 open Plotly.NET
  
-type Learner(globalNet:QNetwork, actors:Actor[], discount:float, learningRate:float)=  
+type Learner(globalNet:Model, actors:Actor[], discount:float, learningRate:float)=  
     let optimizer = Adam(globalNet,lr=dsharp.tensor learningRate) 
     member _.UpdateNetwork(minibatchs: (int[]* float[]*Transitions)[]) =
         let indicesAll = ResizeArray<int>()
@@ -51,10 +51,12 @@ type Learner(globalNet:QNetwork, actors:Actor[], discount:float, learningRate:fl
         ( indicesAll.ToArray(), tdErrorsAll.ToArray())
 
 
-     
+    member _.Save name = 
+        globalNet.save(sprintf @"%s\Model\%s" __SOURCE_DIRECTORY__  name)
 
-    member this.Learn()=  
-        let replay = Replay(bufferSize= (1<<<14)) 
+
+    member this.Learn(thres, n)=  
+        let replay = Replay(bufferSize= (1<<<16)) 
         let miniN = 16 
         let rollOut i =  
             task {  
@@ -83,15 +85,17 @@ type Learner(globalNet:QNetwork, actors:Actor[], discount:float, learningRate:fl
             }
         let mutable learner = learn replay 
         let mutable updateCnt, i, prev = 0, 0, actors[0].Log.Count  
-        let records = Array.create 10 0.0
-        while Array.average records < 200 do
+        let records = Array.create n 0.0  
+        while Array.average records < thres do
+            if i % 1000 - 1 = 0 then 
+                this.Save(sprintf "apeXdqn2_%s.pth" <| System.DateTime.Now.ToString("yyyyMMddHHmmss")) 
             if prev <> actors[0].Log.Count then
+                actors[1..] |> Array.iter(fun actor -> actor.Log.Clear())
                 prev <- actors[0].Log.Count 
                 let elappsed, record = actors[0].Log[actors[0].Log.Count-1]  
                 records[i % records.Length] <- record |> float
-                i <- i + 1 
-                System.Console.CursorLeft <- 0
-                printf  "time %A | record %A | avg %A" elappsed record (Array.average records)
+                i <- i + 1  
+                printfn  "%5d | time %.1f | record %4.1f | avg %4.1f" i elappsed record (Array.average records) 
             let id = Task.WaitAny rollOuts
             let (tdError, (obss, acts, nxtObss, rewards, isDones)) = 
                 rollOuts[id] 
