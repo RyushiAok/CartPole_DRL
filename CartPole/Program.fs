@@ -42,7 +42,7 @@ module Main =
                     while not <| env.Failed() do 
                         Threading.Thread.Sleep 20
                         let action = agent.SelectAction(env.Observations(),0.0)
-                        env.Reflect(action) |> ignore 
+                        env.Update(action) |> ignore 
             } |> Async.RunSynchronously   
             env.Subject
     
@@ -72,7 +72,7 @@ module Main =
                     while not <| env.Failed() do 
                         Threading.Thread.Sleep 20
                         let action = agent.SelectAction(env.Observations(),0.0)
-                        env.Reflect(action) |> ignore 
+                        env.Update(action) |> ignore 
             } |> Async.RunSynchronously
 
     module A2C = 
@@ -109,7 +109,7 @@ module Main =
                      while not <| env.Failed() do 
                          Thread.Sleep 20
                          let action = agent.SelectAction(dsharp.tensor <| [env.Observations()]).toInt32()
-                         env.Reflect(action |> function | 0 -> Left | _ -> Right) |> ignore 
+                         env.Update(action |> function | 0 -> Left | _ -> Right) |> ignore 
              } |> Async.RunSynchronously
              env.Subject
 
@@ -152,7 +152,7 @@ module Main =
                     while not <| envs[0].Failed() do 
                         Thread.Sleep 20
                         let action = agent.SelectAction(dsharp.tensor <| [envs[0].Observations()]).toInt32()
-                        envs[0].Reflect(action |> function | 0 -> Left | _ -> Right) |> ignore  
+                        envs[0].Update(action |> function | 0 -> Left | _ -> Right) |> ignore  
             }
             |> Async.RunSynchronously
 
@@ -160,81 +160,97 @@ module Main =
     module ApeXDQN = 
         open CartPole.ApeXDQN 
         let apeXdqn () =  
-            let env = Env(steps=500) 
+            let env = Env(steps=200) 
+            let env' = Env(steps=200) 
             let model = 
-                QNetwork(observationSize=4,hiddenSize=64,actionCount=2)
+                ActorNetwork(observationSize=4,hiddenSize=32,actionCount=2) 
             async { 
-                let n = 16
-                let envs = [|yield env; for _ in 1..n-1 -> Env(env.Steps)|] 
+                let n = 8
+                let envs = [|yield env; for _ in 2..n -> Env(env.Steps)|] 
                 let actors = 
                     let actorNetworks =  
                         Array.init n (fun _ ->model.clone() )
                     Array.zip actorNetworks envs
-                    |> Array.mapi(fun i (net,env) -> Actor(net, env, 2, 0.98,  (float i / float n) * 0.4 + 0.01)  ) // 0.7
+                    |> Array.mapi(fun i (net,env) -> Actor(net, env, 2, 0.98,  (float i / float n) * 0.6+ 0.01)  )  
                 let learnerNetwork = model
-                let learner = Learner(learnerNetwork, actors, 0.98, 0.001)  
-                learner.Learn(1, 50)   
-                learner.Save(sprintf "apeXdqn_%s.pth" <| DateTime.Now.ToString("yyyyMMddHHmmss"))
-                let agent =  Actor(learnerNetwork, envs[0], 2, 0.98, 0)
-                while true do 
-                    envs[0].Reset()
-                    while not <| envs[0].Failed() do 
-                        Thread.Sleep 20
-                        let action = agent.SelectAction( envs[0].Observations()) 
-                        envs[0].Reflect(action ) |> ignore  
+                let learner = Learner(learnerNetwork, actors, 0.98, 0.005  )
+                async {  
+                    let agent = Actor(model.clone(), env' , 2, 0.98, 0)
+                    while true do 
+                        env'.Reset()
+                        agent.UpdateParam(model.parameters)
+                        while not <| env'.IsDone() do  
+                            Thread.Sleep 20 
+                            env'.Observations()
+                            |> agent.SelectAction
+                            |> env'.Update
+                            |> ignore   
+                } |> Async.Start   
+                let name = "apeXdqn1"
+                learner.Learn(200, 10, name)    
+                let path = sprintf @"%s\ApeXDQN\Model\%s_%s.pth" __SOURCE_DIRECTORY__  name (System.DateTime.Now.ToString("yyyyMMddHHmmss"))  
+                model.save(path) 
             }  
             |> Async.Start
-            env.Subject
+            env'.Subject
 
         
         let apeXdqn2 () =  
-            let steps = 600
-            let env = Env2(steps) 
+            let steps = 600 
             let env' = Env2(steps) 
             let model =  
-                let path = sprintf @"%s\%s" __SOURCE_DIRECTORY__ @"ApeXDQN\Model\apeXdqn2_20220110080143.pth"
-                Model.Model.load(path) 
-                //QNetwork(observationSize=4,hiddenSize=64,actionCount=2)
+                //let path = sprintf @"%s\%s" __SOURCE_DIRECTORY__ @"ApeXDQN\Model\apeXdqn2_20220110080143.pth"
+                //Model.Model.load(path)  
+                ActorNetwork2(observationSize=4,hiddenSize=128,actionCount=2)
             async { 
-                let n = 32
-                let envs = [|yield env; for _ in 1..n-1 -> Env2(steps)|] 
+                let n = 8
+                let envs = Array.init n (fun _ -> Env2(steps))  
                 let actors = 
                     let actorNetworks = Array.init n (fun _ -> model.clone() )
                     Array.zip actorNetworks envs
-                    |> Array.mapi(fun i (net,env) -> Actor(net, env, 2, 0.98,  (float i / float n) * 0.5 + 0.01 ) ) // 0.7
-                let learnerNetwork = model
-                let learner = Learner(learnerNetwork, actors, 0.98, 0.001)   
+                    |> Array.mapi(fun i (net,env) -> Actor(net, env, 2, 0.98,  (float i / float n) * 0.7+ 0.01 ) )   
+                let learner = Learner(model, actors, 0.98, 0.0025)   //0.001
                 async{
-                    learner.Learn(500, 50)   
-                    learner.Save(sprintf "apeXdqn2_%s.pth" <| DateTime.Now.ToString("yyyyMMddHHmmss")) 
+                    let agent =  Actor(model.clone(), env' , 2, 0.98, 0)
+                    while true do 
+                        env'.Reset()
+                        agent.UpdateParam(model.parameters)
+                        while not <| env'.IsDone() do  
+                            Thread.Sleep 20 
+                            env'.Observations()
+                            |> agent.SelectAction
+                            |> env'.Update
+                            |> ignore
                 } |> Async.Start
                 
-                let agent =  Actor(model.clone(), env' , 2, 0.98, 0)
-                while true do 
-                    env'.Reset()
-                    agent.UpdateParam(model.parameters)
-                    while not <| env'.IsDone() do  
-                        Thread.Sleep 20 
-                        env'.Observations()
-                        |> agent.SelectAction
-                        |> env'.Reflect
-                        |> ignore
+                let name = "apeXdqn2"
+                learner.Learn(500, 50, name)    
+                let path = sprintf @"%s\ApeXDQN\Model\%s_%s.pth" __SOURCE_DIRECTORY__  name (System.DateTime.Now.ToString("yyyyMMddHHmmss"))  
+                model.save(path) 
             }  
-            |> Async.Start
-            //env.Subject
+            |> Async.Start 
             env'.Subject
 
     [<EntryPoint>]
     let main argv =  
         NativeLibrary.Load(@"C:\libtorch\lib\torch.dll") |> ignore 
         dsharp.config(backend=Backend.Torch, device=Device.CPU)  
-        
+        //CartPole.Gui.appRun (
+        //    let env  = Env2(2000) 
+        //    async {
+        //        while true do 
+        //            env.Reset() 
+        //            while not <| env.IsDone() do  
+        //                Thread.Sleep 20  
+        //    } |> Async.Start
+        //    env.Subject
+        //) argv |> ignore
         //CartPole.Gui.appRun (DuelNet.duelingNetwork()) argv |> ignore
         //CartPole.Gui.appRun (A2C.a2c()) argv  |> ignore
-        //CartPole.Gui.appRun (ApeXDQN.apeXdqn()) argv  |> ignore
-        CartPole.Gui.appRun (ApeXDQN.apeXdqn2()) argv |> ignore 
-        //pythonEnvDuel() 
-        //pythonEnvA2C () 
+        CartPole.Gui.appRun (ApeXDQN.apeXdqn()) argv  |> ignore
+        // CartPole.Gui.appRun (ApeXDQN.apeXdqn2()) argv |> ignore  
+        //A2C.pythonEnvA2C()
+        //pythonEnvDuel()  
         0
 
 

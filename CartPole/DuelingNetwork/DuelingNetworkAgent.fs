@@ -37,7 +37,7 @@ type DuelNetworkAgent(
         let state  = env.Observations()
         let action = this.SelectAction  (state, 0.01 + ( 0.9- 0.01) * exp( -1.0 * float episode / wd)) 
 
-        let newState,reward,isDone = env.Reflect action
+        let newState,reward,isDone = env.Update action
 
         memory.Append(
             tdError     = 0.0,

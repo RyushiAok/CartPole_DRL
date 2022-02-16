@@ -1,16 +1,10 @@
 ﻿namespace CartPole.ApeXDQN
 open System.Threading.Tasks
 open FSharp.Control.TaskBuilder
-open FSharp.Control.TaskBuilderExtensions
 open DiffSharp
 open DiffSharp.Model
 open DiffSharp.Compose
 open DiffSharp.Optim
- 
-open FSharp.Control
-open FSharp.Control.Reactive
-open FSharp.Control.Reactive.Builders
-
 open Plotly.NET
  
 type Learner(globalNet:Model, actors:Actor[], discount:float, learningRate:float)=  
@@ -50,20 +44,22 @@ type Learner(globalNet:Model, actors:Actor[], discount:float, learningRate:float
             ) 
         ( indicesAll.ToArray(), tdErrorsAll.ToArray())
 
-
-    member _.Save name = 
-        globalNet.save(sprintf @"%s\Model\%s" __SOURCE_DIRECTORY__  name)
-
-
-    member this.Learn(thres, n)=  
-        let replay = Replay(bufferSize= (1<<<16)) 
+    member this.Learn(thres, n, name)=  
+        let replay = Replay(bufferSize= (1<<<14)) // apex2 18 
         let miniN = 16 
         let rollOut i =  
-            task {  
+            //task {  
+            //    let (tdError, (obss, acts, nxtObss, rewards, isDones)) = 
+            //        actors[i].RollOut(globalNet.parameters) 
+            //    return (tdError, (obss, acts, nxtObss, rewards, isDones))  
+            //} :> Task
+            async {  
                 let (tdError, (obss, acts, nxtObss, rewards, isDones)) = 
                     actors[i].RollOut(globalNet.parameters) 
                 return (tdError, (obss, acts, nxtObss, rewards, isDones))  
-            } :> Task
+            } 
+            |> Async.StartAsTask 
+            :> Task
 
         let rollOuts = actors |> Array.mapi(fun i _ -> rollOut i) 
                  
@@ -78,24 +74,44 @@ type Learner(globalNet:Model, actors:Actor[], discount:float, learningRate:float
             rollOuts[id] <- rollOut id
             
         let learn (replay: Replay) = 
-            task { 
+            //task { 
+            //    let minibatchs = Array.init miniN (fun _ -> replay.SampleMinibatch(batchSize=32)) 
+            //    let indices, tdErrors = this.UpdateNetwork(minibatchs)  
+            //    return indices, tdErrors
+            //}
+
+            
+            async { 
                 let minibatchs = Array.init miniN (fun _ -> replay.SampleMinibatch(batchSize=32)) 
                 let indices, tdErrors = this.UpdateNetwork(minibatchs)  
                 return indices, tdErrors
             }
+            |> Async.StartAsTask    
+            
         let mutable learner = learn replay 
         let mutable updateCnt, i, prev = 0, 0, actors[0].Log.Count  
         let records = Array.create n 0.0  
+        let select = fst// fst: step , snd: reward
         while Array.average records < thres do
             if i % 1000 = 999 then 
-                this.Save(sprintf "apeXdqn2_%s.pth" <| System.DateTime.Now.ToString("yyyyMMddHHmmss")) 
+                let name = sprintf "%s_%s.pth" name (System.DateTime.Now.ToString("yyyyMMddHHmmss"))  
+                globalNet.save(sprintf @"%s\Model\%s" __SOURCE_DIRECTORY__  name)
+
+            
+            System.Console.CursorLeft <- 0
+            //printf "%A" [for actor in actors -> actor.Elapsed ]
+
             if prev <> actors[0].Log.Count then
-                actors[1..] |> Array.iter(fun actor -> actor.Log.Clear())
                 prev <- actors[0].Log.Count 
-                let elappsed, record = actors[0].Log[actors[0].Log.Count-1]  
+                let elappsed, record =
+                    let (e, (step, reward)) = actors[0].Log[actors[0].Log.Count-1]  
+                    e, select (step, reward)
                 records[i % records.Length] <- record |> float
                 i <- i + 1  
-                printfn  "%5d | time %.1f | record %4.1f | avg %4.1f" i elappsed record (Array.average records) 
+                //System.Console.CursorLeft <- 0
+                printfn  "%5d | time %.1f | record %4.1f | avg %4.1f\t " i elappsed record (Array.average records) 
+                actors[1..] |> Array.iter(fun actor -> actor.Log.Clear())
+
             let id = Task.WaitAny rollOuts
             let (tdError, (obss, acts, nxtObss, rewards, isDones)) = 
                 rollOuts[id] 
@@ -108,5 +124,8 @@ type Learner(globalNet:Model, actors:Actor[], discount:float, learningRate:float
                 updateCnt <- updateCnt + 1  
                 learner <- learn replay
                   
-        Chart.Line(xy = actors[0].Log )
+        Chart.Line(
+            x = (actors[0].Log |> Seq.unzip |> fst ),
+            y = (actors[0].Log |> Seq.unzip |> snd |> Seq.map select ) 
+        )
         |> Chart.show 
