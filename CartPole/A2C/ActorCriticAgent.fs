@@ -16,7 +16,7 @@ type ActorCriticAgent(actorCritic: ActorCritic, env: Environment) =
     member _.Observe ()  = env.Observations()
 
     member _.Step (action:int) =   
-        let newState,reward,isDone = env.Reflect (action |> function | 0 -> Left | _ -> Right)
+        let newState,reward,isDone = env.Update (action |> function | 0 -> Left | _ -> Right)
         if isDone then
             l.Add(l.Count, env.Elappsed())
             env.Reset()

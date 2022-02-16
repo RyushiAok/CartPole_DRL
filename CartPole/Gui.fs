@@ -63,7 +63,9 @@ module Gui =
                     Observable.interval (TimeSpan.FromMilliseconds 5.0) 
                     |> Observable.withLatestFrom (fun _ b -> b) subject
                     |> Observable.distinctUntilChanged
-                    |> Observable.subscribe (fun x -> Msg.Update x |> dispatch)
+                    |> Observable.subscribe (fun x ->  
+                        Msg.Update x |> dispatch
+                    )
                     |> ignore
                 Cmd.ofSub sub
             let initState () = 
@@ -91,7 +93,7 @@ module Gui =
                     )
                     |> ignore 
                 Cmd.ofSub sub 
-
+             
             base.Width  <- subject.Value.width
             base.Height <- subject.Value.height 
 

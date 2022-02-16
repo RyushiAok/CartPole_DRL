@@ -47,7 +47,14 @@ type Apparatus = {
         { this with
             x         = this.x + this.dx * this.tau
             dx        = this.dx + ddx * this.tau
-            theta     = this.theta + this.dtheta * this.tau
+            theta     = this.theta + this.dtheta * this.tau 
+                // let t = (this.theta + this.dtheta * this.tau )
+                //if t < -System.Math.PI then 
+                //    2.0 * System.Math.PI + t
+                //elif System.Math.PI < t then
+                //    -(2.0 * System.Math.PI + t)
+                //else 
+                //    t  
             dtheta    = this.dtheta + ddtheta * this.tau  
             elappesed = this.elappesed + 1  
         } 
@@ -65,24 +72,7 @@ type Apparatus = {
         || float this.x < -2.4
         || 2.4 < float this.x   
 
-
-//module Apparatus =
-//    let init () =
-//        {   x         = Random.Double() * 0.1<m> - 0.05<m>
-//            dx        = Random.Double() * 0.1<m/s> - 0.05<m/s>
-//            theta     = Random.Double() * 0.1 - 0.05
-//            dtheta    = Random.Double() * 0.1</s>  - 0.05</s> 
-//            massCart  = 1.0<kg>
-//            massPole  = 0.1<kg>
-//            length    = 0.5<m>  
-//            g         = 9.8<m/s^2>
-//            tau       = 0.02<s>
-//            forceMag  = 10.0<N>  
-//            elappesed = 0 
-//            width     = 4.8 * 120.0
-//            height    = 300.0   
-//            scale     = 120.0
-//        }  
+         
 
 open FSharp.Control.Reactive   
 
@@ -90,7 +80,7 @@ open FSharp.Control.Reactive
 type Environment() = 
     abstract member Steps : int
     abstract member Observations : unit -> float[]
-    abstract member Reflect : Action -> float[] * float * bool
+    abstract member Update : Action -> float[] * float * bool
     abstract member IsDone : unit -> bool
     abstract member Elappsed : unit -> int
     abstract member Reset : unit -> unit
@@ -139,7 +129,7 @@ type Env (?steps:int) =
     override this.IsDone() = 
         this.Failed() || this.Elappsed() >= steps
 
-    override this.Reflect(action:Action)  =  
+    override this.Update(action:Action)  =  
 
         subject.OnNext <| subject.Value.Move action 
 
@@ -157,23 +147,44 @@ type Env (?steps:int) =
 type Env2 (?steps:int) = 
     inherit Environment()
     let steps = defaultArg steps 200 
+      
+            
+    let initState () =  
+        if Random.Double() <= 1.0 then
+            {   x         = 0.00<m>
+                dx        = 0.00<m/s>
+                theta     = System.Math.PI
+                dtheta    = 0.0</s>
+                massCart  = 1.0<kg>
+                massPole  = 0.1<kg>
+                length    = 0.5<m>  
+                g         = 9.8<m/s^2>
+                tau       = 0.02<s>
+                forceMag  = 10.0<N>  
+                elappesed = 0 
+                width     = 4.8 * 120.0
+                height    = 300.0   
+                scale     = 120.0 }  
+        else 
+            {   x         = Random.Double() * 0.1<m> - 0.05<m>
+                dx        = Random.Double() * 0.1<m/s> - 0.05<m/s>
+                theta     = Random.Double() * 0.1 - 0.05  
+                dtheta    = Random.Double() * 0.1</s>
+                massCart  = 1.0<kg>
+                massPole  = 0.1<kg>
+                length    = 0.5<m>  
+                g         = 9.8<m/s^2>
+                tau       = 0.02<s>
+                forceMag  = 10.0<N>  
+                elappesed = 0 
+                width     = 4.8 * 120.0
+                height    = 300.0   
+                scale     = 120.0 } 
+            
+    let subject = initState() |> Subject.behavior 
      
-    let initState = 
-        {   x         = 0.0<m> 
-            dx        = 0.0<m/s>  
-            theta     = System.Math.PI 
-            dtheta    = 0.0</s> 
-            massCart  = 1.0<kg>
-            massPole  = 0.1<kg>
-            length    = 0.5<m>  
-            g         = 9.8<m/s^2>
-            tau       = 0.02<s>
-            forceMag  = 10.0<N>  
-            elappesed = 0 
-            width     = 4.8 * 120.0
-            height    = 300.0   
-            scale     = 120.0 } 
-    let subject = initState |> Subject.behavior 
+    let mutable flg = false  
+    let mutable flg2 = false
 
     member _.Subject = subject
 
@@ -183,39 +194,45 @@ type Env2 (?steps:int) =
     
     override _.Elappsed() = subject.Value.elappesed
 
-    override _.Reset() = 
-        subject.OnNext <| initState
+    override _.Reset() =   
+        let s = initState ()
+        flg <- false 
+        flg2 <-  s.theta = System.Math.PI 
+                
+        subject.OnNext <| initState ()
     
-    member _.Failed () =  
-        let x = subject.Value.x 
-        float x < -2.4 || 2.4 < float x     
+    member _.Failed () =
+        let theta =
+            let t = subject.Value.theta % (2.0 * System.Math.PI)   
+            abs t
+        
+        if theta <= 0.21*System.Math.PI then
+            flg <- true  
+            
+         
+
+        2.4<m> < abs subject.Value.x 
+        || (flg && ( theta > 0.21*System.Math.PI  ))  
+
 
     override this.IsDone() = 
         this.Failed() || this.Elappsed() >= steps
 
-    override this.Reflect(action:Action)  =  
+    override this.Update(action:Action)  =  
 
         subject.OnNext <| subject.Value.Move action 
-
-        let reward =  
+        let reward =   
+            let theta = abs <| subject.Value.theta % (2.0 * System.Math.PI)  
             if this.IsDone() then   
-                if subject.Value.Failed() then -1.0 
-                else 
-                    let theta = subject.Value.theta 
-                    if -0.21 <= theta && theta <= 0.21 then
-                        2.0  
-                    elif -System.Math.PI / 3.0 <= theta && theta <= System.Math.PI / 3.0 then
-                        1.0
-                    else
-                        0.0    
-            else 
-                let theta = subject.Value.theta 
-                if -0.21 <= theta && theta <= 0.21 then
-                    2.0  
-                elif -System.Math.PI / 3.0 <= theta && theta <= System.Math.PI / 3.0 then
-                    1.0
-                else
-                    0.0    
+                if subject.Value.Failed() then  //-1.0
+                    // if flg && flg2 then 0.0 else -1.0
+                    if flg   then 0.0 else -1.0
+                else  
+                    if  theta <= 0.21 then 1.0  
+                    elif  theta <= 0.5*System.Math.PI then 0.5 
+                    else -1.0    
+            else  
+                0.0  
 
         let isDone = this.IsDone() 
 
@@ -314,7 +331,7 @@ type GymEnvironment(client:Socket, ?steps:int)=
     override this.IsDone() =  
         this.Failed() || this.Elappsed() >= steps
 
-    override this.Reflect(action:Action)  =  
+    override this.Update(action:Action)  =  
         elappsed <- elappsed + 1  
         recievedAR <- false
         do

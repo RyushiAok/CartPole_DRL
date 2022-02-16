@@ -5,23 +5,14 @@ open DiffSharp.Model
 open DiffSharp.Compose
 open DiffSharp.Util
 open System.Text
-
-//type Transition = { 
-//    state       : float[] 
-//    action      : Action  
-//    reward      : float  
-//    nextState   : float[] 
-//    isDone      : bool
-//}
-
+  
 type Transitions = { 
     states       : Tensor[]
     actions      : Tensor[]
     rewards      : Tensor[]  
     nextStates   : Tensor[]
     isDones      : Tensor[]
-}
-// choiceより高速
+} 
 type SegmentTree(capacity: int) = 
    let tree = Array.zeroCreate<float> (capacity * 2)  
    
