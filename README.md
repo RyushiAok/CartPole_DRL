@@ -13,4 +13,9 @@
 <img src=https://user-images.githubusercontent.com/55625375/137509414-697291e8-b9bc-414a-95f3-4b0ff9e289df.png width= 400> 
 
 ## ソケット通信によるGym環境の利用
+
+強化学習環境として、Gymを利用することができます。
+
+Gym環境を利用する場合は、先に CartPole＿DRL/cartpole_gym_environment/main.py を実行してください。
+    
 ![GymEnvA2C](https://user-images.githubusercontent.com/55625375/147834837-f5ac305a-3bf4-47c5-9567-fe45727d3472.gif) 
