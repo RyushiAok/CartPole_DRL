@@ -1,5 +1,9 @@
 # Deep Reinforcement Learning 
 
+## ApeX
+![Videotogif](https://user-images.githubusercontent.com/55625375/154363408-5eb58140-8811-468d-8916-a9f27ddc27e5.gif)
+
+
 ## A2C
   
 ![実行例A2C](https://user-images.githubusercontent.com/55625375/137506512-eeb17973-12be-495e-a75f-03335b16a1ec.gif) 
